@@ -13,5 +13,5 @@
 //  These are the only two lines you ever need to edit here.
 // ─────────────────────────────────────────────────────────────
 
-export const SUPABASE_URL = "";       // e.g. https://abcdxyzabcd.supabase.co
-export const SUPABASE_ANON_KEY = "";  // the long "anon public" key
+export const SUPABASE_URL = "https://yojkxozxdhdnzqbybnil.supabase.co";       // e.g. https://abcdxyzabcd.supabase.co
+export const SUPABASE_ANON_KEY = "sb_publishable_uYmSCxmXvgbffLJS5F4UhQ_Y48Lqm7t";  // the long "anon public" key
