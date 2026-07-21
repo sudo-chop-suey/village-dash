@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Priority Funders — Village SF</title>
+<style>
+  :root {
+    --ink: #141F1A;
+    --ink-soft: #1C2A23;
+    --paper: #F6F3EA;
+    --paper-dim: #EDE8DB;
+    --brass: #C2A15F;
+    --mist: #8FA396;
+    --vermilion: #C4553B;
+    --line: rgba(194,161,95,0.28);
+    --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --sans: 'Inter', -apple-system, system-ui, sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: var(--ink);
+    font-family: var(--sans);
+    color: var(--paper);
+    padding-bottom: 80px;
+  }
+  button { cursor: pointer; font-family: inherit; }
+  button:disabled { cursor: default; }
+  input, select, textarea { font-family: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--brass); outline-offset: 2px;
+  }
+  a { color: #8a6c2c; text-decoration-color: var(--brass); word-break: break-all; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  header { max-width: 880px; margin: 0 auto; padding: 44px 20px 0; }
+  .head-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--brass); text-transform: uppercase; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 5vw, 42px); margin: 6px 0 0; letter-spacing: -0.01em; }
+  .subline { font-family: var(--mono); font-size: 11px; color: var(--mist); margin-top: 6px; }
+
+  .btn-primary {
+    background: var(--brass); color: var(--ink); border: none; border-radius: 2px;
+    padding: 12px 22px; font-weight: 600; font-size: 14px; letter-spacing: 0.02em;
+  }
+  .btn-primary:disabled { opacity: 0.4; }
+  .ghost {
+    background: transparent; color: var(--mist);
+    border: 1px solid rgba(246,243,234,0.25); border-radius: 2px;
+    padding: 12px 16px; font-size: 14px; transition: all .15s;
+  }
+  .ghost:hover { color: var(--paper); border-color: var(--brass); }
+
+  nav.rail { display: flex; gap: 6px; margin-top: 28px; flex-wrap: wrap; }
+  nav.rail button {
+    background: transparent; border: 1px solid rgba(246,243,234,0.18); color: var(--mist);
+    border-radius: 2px; padding: 7px 12px; font-size: 13px; transition: all .15s;
+  }
+  nav.rail button:hover { color: var(--paper); border-color: var(--brass); }
+  nav.rail button.active { background: rgba(194,161,95,0.16); border-color: var(--brass); color: var(--paper); }
+  nav.rail .count { font-family: var(--mono); font-size: 11px; opacity: 0.75; }
+
+  main { max-width: 880px; margin: 26px auto 0; padding: 0 20px; }
+  .save-err { font-family: var(--mono); font-size: 12px; color: var(--vermilion); margin-bottom: 12px; }
+
+  .empty {
+    border: 1px dashed rgba(246,243,234,0.25); border-radius: 3px;
+    padding: 56px 24px; text-align: center;
+  }
+  .empty .big { font-family: var(--serif); font-size: 22px; margin-bottom: 8px; }
+  .empty .sub { color: var(--mist); font-size: 14px; max-width: 420px; margin: 0 auto 22px; }
+
+  article.card {
+    background: var(--paper); color: var(--ink); border-radius: 3px;
+    padding: 18px 20px; margin-bottom: 12px;
+    border: 1px solid transparent; transition: border-color .15s;
+  }
+  article.card:hover { border-color: var(--brass); }
+  article.card.overdue { border-color: var(--vermilion); }
+  .card-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .card-main { min-width: 0; }
+  .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card h2 { font-family: var(--serif); font-weight: 600; font-size: 19px; margin: 0; }
+  .badge {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 2px;
+  }
+  .badge.funding { border: 1px solid #b9b2a0; color: #5b6a60; background: transparent; }
+  .stale-flag { font-family: var(--mono); font-size: 10.5px; color: var(--vermilion); }
+  .meta {
+    font-family: var(--mono); font-size: 12.5px; color: #5b6a60; margin-top: 6px;
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  }
+  .meta .due { color: var(--vermilion); font-weight: 700; font-size: 16px; }
+  .meta .checkin-due { color: #8a6c2c; font-weight: 600; }
+  .source { font-family: var(--mono); font-size: 11.5px; margin: 6px 0 0; color: #8a6c2c; line-height: 1.5; }
+  .notes {
+    font-size: 13px; margin: 8px 0 0; line-height: 1.5; color: #5b6a60;
+    border-left: 2px solid var(--brass); padding-left: 10px;
+  }
+  .card-actions { display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; }
+  .btn-sm {
+    background: transparent; border: 1px solid #b9b2a0; color: #33403a;
+    border-radius: 2px; padding: 6px 10px; font-size: 12.5px;
+  }
+  .btn-sm:disabled { color: #c9c3b2; }
+
+  .add-wide {
+    width: 100%; background: transparent; border: 1px dashed rgba(246,243,234,0.3);
+    color: var(--mist); border-radius: 3px; padding: 14px; font-size: 14px; margin-top: 4px;
+    transition: all .15s;
+  }
+  .add-wide:hover { color: var(--paper); border-color: var(--brass); }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(10,15,12,0.72);
+    display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+  }
+  .modal {
+    background: var(--paper); border-radius: 4px; padding: 24px;
+    width: 100%; max-width: 620px; max-height: 88vh; overflow: auto; color: var(--ink);
+  }
+  .modal h2 { font-family: var(--serif); font-weight: 600; font-size: 20px; margin: 0; }
+  .modal label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #7a7361; display: block; margin-top: 16px;
+  }
+  .modal .field {
+    display: block; width: 100%; background: #fff; border: 1px solid #cfc8b6; border-radius: 2px;
+    padding: 10px 12px; font-size: 14px; color: var(--ink); margin-top: 6px;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+  .modal textarea.field { min-height: 70px; resize: vertical; }
+  .modal-foot { display: flex; justify-content: space-between; margin-top: 24px; gap: 10px; flex-wrap: wrap; }
+  .btn-dark { background: var(--ink); color: var(--paper); border: none; border-radius: 2px; padding: 10px 20px; font-size: 14px; font-weight: 600; }
+  .btn-dark:disabled { opacity: 0.4; }
+  .btn-plain { background: transparent; border: 1px solid #b9b2a0; color: #5b6a60; border-radius: 2px; padding: 10px 16px; font-size: 14px; }
+  .btn-danger { background: transparent; border: none; color: var(--vermilion); font-size: 13px; text-decoration: underline; }
+
+  .brief-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
+  .brief-head h2 { margin: 0; }
+  pre.brief {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65; white-space: pre-wrap;
+    color: var(--ink); background: var(--paper-dim); padding: 18px; border-radius: 3px;
+    margin: 0; max-height: 55vh; overflow: auto;
+  }
+  .brief-note { font-size: 12px; color: #8a8471; margin: 12px 0 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div>
+      <div class="eyebrow">Friendship House · Village SF</div>
+      <h1>Priority Funders</h1>
+      <div class="subline">Grants pipeline — saved in this browser, sorted by deadline urgency</div>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button id="briefBtn" class="btn-primary">Pipeline Brief →</button>
+    </div>
+  </div>
+  <nav class="rail" id="rail"></nav>
+</header>
+
+<main>
+  <div id="saveErr" class="save-err" hidden>Couldn't save to storage — changes may not persist. Try again.</div>
+  <div id="board"></div>
+</main>
+
+<div id="modalRoot"></div>
+
+<script>
+const STAGES = ["Researching", "Vetted", "LOI / Proposal", "Submitted", "Decision"];
+const FUNDING = ["Capital", "Operations", "Both"];
+const STATUSES = ["Rolling", "Open Now", "Monitor", "Verify Needed"];
+const STATUS_COLOR = {
+  "Rolling":       { bg: "#2E7D46", fg: "#EAF7EE" },
+  "Open Now":      { bg: "#2E7D46", fg: "#EAF7EE" },
+  "Monitor":       { bg: "#E3B23C", fg: "#3A2E0A" },
+  "Verify Needed": { bg: "#C4553B", fg: "#F6E7E2" },
+};
+const STORE_KEY = "vsf-prospect-ledger-v1";
+
+const IMPORTED = [
+  {"name": "CA Governor's Office of Tribal Affairs – CA Jobs First tribal capital grants", "stage": "Researching", "status": "Verify Needed", "award": "Part of $15M pool", "deadline": "", "source": "https://www.gov.ca.gov", "notes": "Contact Governor's Office of Tribal Affairs directly", "funding": "Capital"},
+  {"name": "Kataly Foundation – Restorative Economies Fund", "stage": "Researching", "status": "Rolling", "award": "Varies (integrated capital)", "deadline": "", "source": "https://www.katalyfoundation.org/program/restorative-economies-fund/", "notes": "Initiate outreach to program officer", "funding": "Capital"},
+  {"name": "SAMHSA – CCBHC Improvement & Advancement (SM-26-015)", "stage": "Vetted", "status": "Open Now", "award": "Varies (recent avg. ~$3.5M)", "deadline": "2026-08-17", "source": "https://www.samhsa.gov/grants/grant-announcements/sm-26-015", "notes": "Confirm exact deadline at samhsa.gov NOFO page", "funding": "Operations"},
+  {"name": "ANA – EAGLE Program (replacing SEDS)", "stage": "Researching", "status": "Monitor", "award": "$300,000–$1,000,000 (varies by project area; IDEAS track up to $900K)", "deadline": "", "source": "https://acf.gov/ana", "notes": "Watch for posting 7/8/2026; contact Carmelia.Strickland@acf.hhs.gov with questions", "funding": "Operations"},
+  {"name": "GO-Biz – California Community Reinvestment Grants (CalCRG)", "stage": "Researching", "status": "Monitor", "award": "$600,000–$3,000,000", "deadline": "", "source": "https://business.ca.gov/california-community-reinvestment-grants-program/", "notes": "Prep application materials now for August opening", "funding": "Operations"},
+  {"name": "Kaiser Permanente Community Health (Northern California)", "stage": "Vetted", "status": "Open Now", "award": "Varies", "deadline": "", "source": "", "notes": "Submit inquiry via regional KP Community Health contact", "funding": "Operations"},
+  {"name": "SF Dept. of Public Health – Behavioral Health Services (county contracting)", "stage": "Researching", "status": "Rolling", "award": "Contract-based", "deadline": "", "source": "https://www.sf.gov/departments--department-public-health--behavioral-health", "notes": "Schedule provider relationship meeting with SFDPH BHS", "funding": "Operations"},
+  {"name": "W.K. Kellogg Foundation", "stage": "Researching", "status": "Rolling", "award": "$1,000–$70,000,000", "deadline": "", "source": "https://www.wkkf.org/grantseekers/", "notes": "Submit LOI via Fluxx portal", "funding": "Operations"},
+  {"name": "OpenAI – People-First AI Fund", "stage": "Submitted", "status": "", "award": "Up to 10% of org's annual budget", "deadline": "2026-07-16", "source": "https://openaifoundation.smapply.us/prog/people-first-ai-fund/", "notes": "", "funding": "Operations"},
+  {"name": "Kapor Foundation", "stage": "Researching", "status": "Rolling", "award": "$100,000–$500,000 (average)", "deadline": "", "source": "https://kaporfoundation.org/grantmaking/", "notes": "Pursue warm intro via Frieda McAlear; position as first Indigenous-led wellness center + tech workforce hub", "funding": "Operations"},
+  {"name": "CA State Parks – Statewide Park Development & Community Revitalization Program", "stage": "Researching", "status": "Verify Needed", "award": "$200,000–$8,500,000", "deadline": "", "source": "https://www.parks.ca.gov/?page_id=29939", "notes": "Ask CA State Parks whether Wellness Center's rooftop farm/community space qualifies", "funding": "Capital"},
+  {"name": "Kalliopeia Foundation", "stage": "Researching", "status": "Monitor", "award": "Unverified (foundation revenue $18.4M, 2024)", "deadline": "", "source": "https://kalliopeia.org/grants-program/", "notes": "if you feel your work is strongly aligned with our mission, tell us about it at grants@kalliopeia.org", "funding": ""},
+  {"name": "Del E. Webb Foundation", "stage": "Vetted", "status": "Open Now", "award": "Contact if requesting $1M+; funds capital projects", "deadline": "2026-09-15", "source": "https://www.dewf.org/HomePage.html", "notes": "submit Letter of Intent before 2026-09-15 deadline", "funding": "Capital"},
+];
+
+// ————— Helpers —————
+const uid = () => Math.random().toString(36).slice(2, 10);
+const today = () => new Date(new Date().toDateString());
+const daysLeft = (d) => {
+  if (!d) return null;
+  const dl = new Date(d + "T00:00:00");
+  return Math.round((dl - today()) / 86400000);
+};
+const fmtDate = (d) => {
+  if (!d) return "no deadline";
+  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const linkify = (text) => {
+  const parts = String(text).split(/(https?:\/\/[^\s)]+|www\.[^\s)]+)/gi);
+  return parts.map((part) =>
+    /^(https?:\/\/|www\.)/i.test(part)
+      ? `<a href="${esc(part.startsWith("www.") ? "https://" + part : part)}" target="_blank" rel="noopener noreferrer">${esc(part)} ↗</a>`
+      : esc(part)
+  ).join("");
+};
+const isStale = (p) => {
+  if (!p.updatedAt) return false;
+  const days = Math.round((Date.now() - p.updatedAt) / 86400000);
+  return days >= 14 && p.stage !== "Decision";
+};
+const urgencyRank = (p) => {
+  const d = daysLeft(p.deadline);
+  return d === null ? 100000 : d;
+};
+
+// ————— State + storage —————
+let prospects = [];
+let filter = "All";
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) { prospects = JSON.parse(raw); return; }
+  } catch (e) { /* fall through to seed */ }
+  prospects = IMPORTED.map((p) => ({ ...p, id: uid(), updatedAt: Date.now() }));
+  save();
+}
+function save() {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(prospects));
+    document.getElementById("saveErr").hidden = true;
+  } catch (e) {
+    document.getElementById("saveErr").hidden = false;
+  }
+}
+function upsert(p) {
+  const stamped = { ...p, updatedAt: Date.now() };
+  if (prospects.some((x) => x.id === p.id)) {
+    prospects = prospects.map((x) => (x.id === p.id ? stamped : x));
+  } else {
+    prospects = [...prospects, { ...stamped, id: uid() }];
+  }
+  save(); render();
+}
+function remove(id) {
+  prospects = prospects.filter((p) => p.id !== id);
+  save(); render();
+}
+function moveStage(id, dir) {
+  const p = prospects.find((x) => x.id === id);
+  if (!p) return;
+  const i = STAGES.indexOf(p.stage) + dir;
+  if (i < 0 || i >= STAGES.length) return;
+  upsert({ ...p, stage: STAGES[i] });
+}
+
+// ————— Brief —————
+function buildBrief() {
+  const now = new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  const active = prospects.filter((p) => p.stage !== "Decision");
+  const lines = [];
+  lines.push(`VILLAGE SF — PIPELINE BRIEF · ${now}`);
+  lines.push(`${active.length} active prospect${active.length === 1 ? "" : "s"}`);
+  lines.push("");
+
+  const soon = active
+    .filter((p) => { const d = daysLeft(p.deadline); return d !== null && d <= 14; })
+    .sort((a, b) => urgencyRank(a) - urgencyRank(b));
+  lines.push("DEADLINES — NEXT 14 DAYS");
+  if (soon.length === 0) lines.push("None. Nothing due inside two weeks.");
+  soon.forEach((p, i) => {
+    const d = daysLeft(p.deadline);
+    const when = d < 0 ? `OVERDUE ${Math.abs(d)}d` : d === 0 ? "due TODAY" : `due ${fmtDate(p.deadline)} (${d}d)`;
+    lines.push(`${i + 1}. ${p.name} — ${when} · ${p.stage}`);
+  });
+  lines.push("");
+
+  const ranked = [...active].sort((a, b) => urgencyRank(a) - urgencyRank(b));
+  lines.push("PIPELINE — RANKED BY URGENCY");
+  if (ranked.length === 0) lines.push("Nothing active on the board.");
+  ranked.forEach((p, i) => {
+    const src = p.source ? ` (${p.source})` : "";
+    lines.push(`${i + 1}. ${p.name} · ${p.stage}${src}`);
+  });
+  lines.push("");
+
+  const stale = active.filter(isStale);
+  if (stale.length) {
+    lines.push("NEEDS A MOVE — untouched 14+ days");
+    stale.forEach((p) => {
+      const dt = new Date(p.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      lines.push(`- ${p.name} — last touched ${dt}, still in ${p.stage}`);
+    });
+    lines.push("");
+  }
+
+  const next = soon[0] || ranked[0];
+  if (next) {
+    const d = daysLeft(next.deadline);
+    const verb = next.stage === "Submitted" ? "Confirm receipt for" : next.stage === "LOI / Proposal" ? "Finish and submit" : "Advance";
+    lines.push(`NEXT STEP: ${verb} ${next.name}${d !== null ? ` — ${d < 0 ? "overdue" : `${d} days out`}` : ""}.`);
+  }
+  return lines.join("\n");
+}
+
+// ————— Render —————
+function render() {
+  // Stage rail
+  const counts = { All: prospects.length };
+  STAGES.forEach((s) => (counts[s] = prospects.filter((p) => p.stage === s).length));
+  const rail = document.getElementById("rail");
+  rail.innerHTML = ["All", ...STAGES].map((s) =>
+    `<button data-stage="${esc(s)}" class="${filter === s ? "active" : ""}">${esc(s)} <span class="count">${counts[s] ?? 0}</span></button>`
+  ).join("");
+  rail.querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => { filter = b.dataset.stage; render(); })
+  );
+
+  document.getElementById("briefBtn").disabled = prospects.length === 0;
+
+  const board = document.getElementById("board");
+  if (prospects.length === 0) {
+    board.innerHTML = `
+      <div class="empty">
+        <div class="big">The board is empty.</div>
+        <div class="sub">Add your first funder to start the pipeline.</div>
+        <button class="btn-primary" id="emptyAdd">Add a funder</button>
+      </div>`;
+    document.getElementById("emptyAdd").addEventListener("click", () => openEditor(null));
+    return;
+  }
+
+  const visible = (filter === "All" ? prospects : prospects.filter((p) => p.stage === filter))
+    .slice().sort((a, b) => urgencyRank(a) - urgencyRank(b));
+
+  board.innerHTML = visible.map((p) => {
+    const d = daysLeft(p.deadline);
+    const overdue = d !== null && d < 0;
+    const stale = isStale(p);
+    const sc = p.status && STATUS_COLOR[p.status];
+    const si = STAGES.indexOf(p.stage);
+    const cd = p.checkin ? daysLeft(p.checkin) : null;
+    return `
+      <article class="card${overdue ? " overdue" : ""}">
+        <div class="card-row">
+          <div class="card-main">
+            <div class="title-row">
+              <h2>${esc(p.name)}</h2>
+              ${sc ? `<span class="badge" style="background:${sc.bg};color:${sc.fg}">${esc(p.status)}</span>` : ""}
+              ${p.funding ? `<span class="badge funding">${esc(p.funding)}</span>` : ""}
+              ${stale ? `<span class="stale-flag">STALE 14d+</span>` : ""}
+            </div>
+            <div class="meta">
+              <span>${esc(p.stage)}</span>
+              ${d !== null ? `<span class="due">${overdue ? `OVERDUE ${Math.abs(d)}d` : d === 0 ? "DUE TODAY" : `${fmtDate(p.deadline)} · ${d}d left`}</span>` : ""}
+              ${p.checkin ? `<span class="${cd <= 0 ? "checkin-due" : ""}">check-in ${fmtDate(p.checkin)}${cd <= 0 ? " — due" : ""}</span>` : ""}
+              ${p.award ? `<span>· ${esc(p.award)}</span>` : ""}
+            </div>
+            ${p.source ? `<p class="source">${linkify(p.source)}</p>` : ""}
+            ${p.notes ? `<p class="notes">${linkify(p.notes)}</p>` : ""}
+          </div>
+          <div class="card-actions">
+            <button class="btn-sm" data-act="back" data-id="${p.id}" title="Move back a stage" ${si === 0 ? "disabled" : ""}>←</button>
+            <button class="btn-sm" data-act="fwd" data-id="${p.id}" title="Advance a stage" ${si === STAGES.length - 1 ? "disabled" : ""}>→</button>
+            <button class="btn-sm" data-act="edit" data-id="${p.id}">Edit</button>
+          </div>
+        </div>
+      </article>`;
+  }).join("") + `<button class="add-wide" id="addBtn">+ Add funder</button>`;
+
+  board.querySelectorAll("[data-act]").forEach((b) => {
+    const id = b.dataset.id;
+    b.addEventListener("click", () => {
+      if (b.dataset.act === "back") moveStage(id, -1);
+      else if (b.dataset.act === "fwd") moveStage(id, 1);
+      else openEditor(prospects.find((p) => p.id === id));
+    });
+  });
+  document.getElementById("addBtn").addEventListener("click", () => openEditor(null));
+}
+
+// ————— Modals —————
+const modalRoot = document.getElementById("modalRoot");
+function closeModal() { modalRoot.innerHTML = ""; }
+
+function openEditor(initial) {
+  const f = initial
+    ? { notes: "", status: "", award: "", funding: "", checkin: "", ...initial }
+    : { name: "", stage: STAGES[0], status: "", award: "", funding: "", deadline: "", checkin: "", source: "", notes: "" };
+
+  modalRoot.innerHTML = `
+    <div class="overlay" id="ovl">
+      <div class="modal">
+        <h2>${initial ? "Edit funder" : "Add funder"}</h2>
+        <label style="margin-top:20px">Funder name</label>
+        <input class="field" id="f-name" value="${esc(f.name)}" placeholder="Foundation name">
+        <div class="grid2">
+          <div><label>Stage</label>
+            <select class="field" id="f-stage">${STAGES.map((s) => `<option ${s === f.stage ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div>
+          <div><label>Status</label>
+            <select class="field" id="f-status"><option value="">— none —</option>${STATUSES.map((s) => `<option ${s === f.status ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div>
+          <div><label>Deadline</label>
+            <input class="field" id="f-deadline" type="date" value="${esc(f.deadline)}"></div>
+          <div><label>Award range</label>
+            <input class="field" id="f-award" value="${esc(f.award)}" placeholder="$200,000–$8.5M"></div>
+          <div><label>Funding for</label>
+            <select class="field" id="f-funding"><option value="">— none —</option>${FUNDING.map((s) => `<option ${s === f.funding ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div>
+          <div><label>Check-in date</label>
+            <input class="field" id="f-checkin" type="date" value="${esc(f.checkin)}"></div>
+        </div>
+        <label>Source</label>
+        <input class="field" id="f-source" value="${esc(f.source)}" placeholder="990 year + EIN, foundation site URL, Instrumentl profile">
+        <label>Notes</label>
+        <textarea class="field" id="f-notes" placeholder="Contacts, next actions, quirks of the application, anything worth remembering">${esc(f.notes)}</textarea>
+        <div class="modal-foot">
+          <div style="display:flex; gap:10px;">
+            <button class="btn-dark" id="f-save">Save</button>
+            <button class="btn-plain" id="f-cancel">Cancel</button>
+          </div>
+          ${initial ? `<button class="btn-danger" id="f-delete">Remove from board</button>` : ""}
+        </div>
+      </div>
+    </div>`;
+
+  const ovl = document.getElementById("ovl");
+  ovl.addEventListener("click", (e) => { if (e.target === ovl) closeModal(); });
+  document.getElementById("f-cancel").addEventListener("click", closeModal);
+  if (initial) document.getElementById("f-delete").addEventListener("click", () => { remove(initial.id); closeModal(); });
+
+  const nameInput = document.getElementById("f-name");
+  const saveBtn = document.getElementById("f-save");
+  const syncSave = () => { saveBtn.disabled = nameInput.value.trim().length === 0; };
+  nameInput.addEventListener("input", syncSave);
+  syncSave();
+
+  saveBtn.addEventListener("click", () => {
+    if (nameInput.value.trim().length === 0) return;
+    upsert({
+      ...(initial ? { id: initial.id } : {}),
+      name: nameInput.value.trim(),
+      stage: document.getElementById("f-stage").value,
+      status: document.getElementById("f-status").value,
+      deadline: document.getElementById("f-deadline").value,
+      award: document.getElementById("f-award").value,
+      funding: document.getElementById("f-funding").value,
+      checkin: document.getElementById("f-checkin").value,
+      source: document.getElementById("f-source").value,
+      notes: document.getElementById("f-notes").value,
+    });
+    closeModal();
+  });
+  nameInput.focus();
+}
+
+function openBrief() {
+  const text = buildBrief();
+  modalRoot.innerHTML = `
+    <div class="overlay" id="ovl">
+      <div class="modal">
+        <div class="brief-head">
+          <h2>Pipeline Brief</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-dark" id="b-copy" style="padding:8px 16px; font-size:13px;">Copy</button>
+            <button class="btn-plain" id="b-close" style="padding:8px 14px; font-size:13px;">Close</button>
+          </div>
+        </div>
+        <pre class="brief">${esc(text)}</pre>
+        <p class="brief-note">Ranked by deadline urgency. Paste into email or Slack to the Director — nothing leaves this page until you send it.</p>
+      </div>
+    </div>`;
+  const ovl = document.getElementById("ovl");
+  ovl.addEventListener("click", (e) => { if (e.target === ovl) closeModal(); });
+  document.getElementById("b-close").addEventListener("click", closeModal);
+  const copyBtn = document.getElementById("b-copy");
+  copyBtn.addEventListener("click", async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); document.body.removeChild(ta);
+      }
+      copyBtn.textContent = "Copied ✓";
+      setTimeout(() => (copyBtn.textContent = "Copy"), 1800);
+    } catch (e) { /* leave button as-is */ }
+  });
+}
+
+document.getElementById("briefBtn").addEventListener("click", openBrief);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+load();
+render();
+</script>
+</body>
+</html>
