@@ -42,6 +42,9 @@
   h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 5vw, 42px); margin: 6px 0 0; letter-spacing: -0.01em; }
   .subline { font-family: var(--mono); font-size: 11px; color: var(--mist); margin-top: 6px; }
 
+  .status { font-family: var(--mono); font-size: 11px; color: var(--mist); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .status .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: var(--mist); }
+
   .btn-primary {
     background: var(--brass); color: var(--ink); border: none; border-radius: 2px;
     padding: 12px 22px; font-weight: 600; font-size: 14px; letter-spacing: 0.02em;
@@ -158,9 +161,11 @@
     <div>
       <div class="eyebrow">Friendship House · Village SF</div>
       <h1>Priority Funders</h1>
-      <div class="subline">Grants pipeline — saved in this browser, sorted by deadline urgency</div>
+      <div class="subline">Grants pipeline — ranked by deadline urgency</div>
     </div>
-    <div style="display:flex; gap:8px; align-items:center;">
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span id="status" class="status"><span class="dot"></span>Connecting…</span>
+      <button id="refreshBtn" class="ghost" title="Pull the latest teammate edits">↻ Refresh</button>
       <button id="briefBtn" class="btn-primary">Pipeline Brief →</button>
     </div>
   </div>
@@ -168,13 +173,15 @@
 </header>
 
 <main>
-  <div id="saveErr" class="save-err" hidden>Couldn't save to storage — changes may not persist. Try again.</div>
+  <div id="saveErr" class="save-err" hidden>Couldn't save — your change may not have reached the shared board. Check your connection and try again.</div>
   <div id="board"></div>
 </main>
 
 <div id="modalRoot"></div>
 
-<script>
+<script type="module">
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
 const STAGES = ["Researching", "Vetted", "LOI / Proposal", "Submitted", "Decision"];
 const FUNDING = ["Capital", "Operations", "Both"];
 const STATUSES = ["Rolling", "Open Now", "Monitor", "Verify Needed"];
@@ -184,7 +191,8 @@ const STATUS_COLOR = {
   "Monitor":       { bg: "#E3B23C", fg: "#3A2E0A" },
   "Verify Needed": { bg: "#C4553B", fg: "#F6E7E2" },
 };
-const STORE_KEY = "vsf-prospect-ledger-v1";
+const STORE_KEY = "vsf-prospect-ledger-v1";  // local cache / offline fallback
+const POLL_MS = 8000;
 
 const IMPORTED = [
   {"name": "CA Governor's Office of Tribal Affairs – CA Jobs First tribal capital grants", "stage": "Researching", "status": "Verify Needed", "award": "Part of $15M pool", "deadline": "", "source": "https://www.gov.ca.gov", "notes": "Contact Governor's Office of Tribal Affairs directly", "funding": "Capital"},
@@ -204,6 +212,7 @@ const IMPORTED = [
 
 // ————— Helpers —————
 const uid = () => Math.random().toString(36).slice(2, 10);
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || uid();
 const today = () => new Date(new Date().toDateString());
 const daysLeft = (d) => {
   if (!d) return null;
@@ -233,38 +242,102 @@ const urgencyRank = (p) => {
   return d === null ? 100000 : d;
 };
 
-// ————— State + storage —————
+// ————— Data layer —————
+// Two backends, chosen at load: a shared Supabase table when config.js is
+// filled in ("remote"), otherwise this browser's localStorage ("local").
+const CONFIGURED = /^https:\/\/.+/.test(SUPABASE_URL || "") && (SUPABASE_ANON_KEY || "").length > 20;
+const mode = CONFIGURED ? "remote" : "local";
+
+const REST = CONFIGURED ? SUPABASE_URL.replace(/\/$/, "") + "/rest/v1/prospects" : "";
+const HEADERS = {
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: "Bearer " + SUPABASE_ANON_KEY,
+  "Content-Type": "application/json",
+};
+const toRow = (p) => ({ id: p.id, data: p, updated_at: new Date().toISOString() });
+const fromRow = (r) => ({ ...r.data, id: r.id });
+
+async function remoteGet() {
+  const r = await fetch(`${REST}?select=id,data&order=updated_at.asc`, { headers: HEADERS });
+  if (!r.ok) throw new Error("GET " + r.status);
+  return (await r.json()).map(fromRow);
+}
+async function remoteUpsert(rec) {
+  const r = await fetch(REST, {
+    method: "POST",
+    headers: { ...HEADERS, Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify([toRow(rec)]),
+  });
+  if (!r.ok) throw new Error("UPSERT " + r.status);
+}
+async function remoteDelete(id) {
+  const r = await fetch(`${REST}?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: HEADERS });
+  if (!r.ok) throw new Error("DELETE " + r.status);
+}
+async function remoteSeed() {
+  const rows = IMPORTED.map((p) => ({ ...p, id: slug(p.name), updatedAt: Date.now() }));
+  const r = await fetch(REST, {
+    method: "POST",
+    headers: { ...HEADERS, Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify(rows.map(toRow)),
+  });
+  if (!r.ok) throw new Error("SEED " + r.status);
+}
+
+const cacheLocal = () => { try { localStorage.setItem(STORE_KEY, JSON.stringify(prospects)); } catch (e) {} };
+const readCache = () => { try { const raw = localStorage.getItem(STORE_KEY); if (raw) return JSON.parse(raw); } catch (e) {} return []; };
+function loadLocalSeeded() {
+  const cached = readCache();
+  if (cached.length) return cached;
+  const seeded = IMPORTED.map((p) => ({ ...p, id: uid(), updatedAt: Date.now() }));
+  prospects = seeded; cacheLocal();
+  return seeded;
+}
+
+// ————— State —————
 let prospects = [];
 let filter = "All";
+let pollTimer = null;
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) { prospects = JSON.parse(raw); return; }
-  } catch (e) { /* fall through to seed */ }
-  prospects = IMPORTED.map((p) => ({ ...p, id: uid(), updatedAt: Date.now() }));
-  save();
+function setStatus(kind) {
+  const el = document.getElementById("status");
+  const map = {
+    live:    ["#2E7D46", "Live — shared board"],
+    local:   ["#C2A15F", "Local only — not shared"],
+    offline: ["#C4553B", "Offline — showing cached"],
+    saving:  ["#C2A15F", "Saving…"],
+  };
+  const [c, label] = map[kind] || map.offline;
+  el.innerHTML = `<span class="dot" style="background:${c}"></span>${esc(label)}`;
 }
-function save() {
+function setErr(on) { document.getElementById("saveErr").hidden = !on; }
+
+async function reload() {
+  if (mode !== "remote") { prospects = readCache().length ? readCache() : prospects; render(); return; }
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(prospects));
-    document.getElementById("saveErr").hidden = true;
+    prospects = await remoteGet();
+    cacheLocal(); setStatus("live"); render();
   } catch (e) {
-    document.getElementById("saveErr").hidden = false;
+    setStatus("offline");
   }
 }
-function upsert(p) {
-  const stamped = { ...p, updatedAt: Date.now() };
-  if (prospects.some((x) => x.id === p.id)) {
-    prospects = prospects.map((x) => (x.id === p.id ? stamped : x));
+
+async function upsert(p) {
+  let rec;
+  if (p.id && prospects.some((x) => x.id === p.id)) {
+    rec = { ...p, updatedAt: Date.now() };
+    prospects = prospects.map((x) => (x.id === p.id ? rec : x));
   } else {
-    prospects = [...prospects, { ...stamped, id: uid() }];
+    rec = { ...p, id: p.id || uid(), updatedAt: Date.now() };
+    prospects = [...prospects, rec];
   }
-  save(); render();
+  render();
+  await persist(() => remoteUpsert(rec));
 }
-function remove(id) {
+async function remove(id) {
   prospects = prospects.filter((p) => p.id !== id);
-  save(); render();
+  render();
+  await persist(() => remoteDelete(id));
 }
 function moveStage(id, dir) {
   const p = prospects.find((x) => x.id === id);
@@ -272,6 +345,16 @@ function moveStage(id, dir) {
   const i = STAGES.indexOf(p.stage) + dir;
   if (i < 0 || i >= STAGES.length) return;
   upsert({ ...p, stage: STAGES[i] });
+}
+async function persist(remoteFn) {
+  try {
+    if (mode === "remote") await remoteFn();
+    cacheLocal(); setErr(false);
+    if (mode === "remote") setStatus("live");
+  } catch (e) {
+    setErr(true);
+    if (mode === "remote") setStatus("offline");
+  }
 }
 
 // ————— Brief —————
@@ -325,7 +408,6 @@ function buildBrief() {
 
 // ————— Render —————
 function render() {
-  // Stage rail
   const counts = { All: prospects.length };
   STAGES.forEach((s) => (counts[s] = prospects.filter((p) => p.stage === s).length));
   const rail = document.getElementById("rail");
@@ -508,10 +590,25 @@ function openBrief() {
 }
 
 document.getElementById("briefBtn").addEventListener("click", openBrief);
+document.getElementById("refreshBtn").addEventListener("click", reload);
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
 
-load();
-render();
+// ————— Startup —————
+async function init() {
+  if (mode === "remote") {
+    try {
+      let rows = await remoteGet();
+      if (rows.length === 0) { await remoteSeed(); rows = await remoteGet(); }
+      prospects = rows; cacheLocal(); setStatus("live"); render();
+      pollTimer = setInterval(() => { if (!modalRoot.firstChild) reload(); }, POLL_MS);
+    } catch (e) {
+      prospects = readCache(); setStatus("offline"); render();
+    }
+  } else {
+    prospects = loadLocalSeeded(); setStatus("local"); render();
+  }
+}
+init();
 </script>
 </body>
 </html>
